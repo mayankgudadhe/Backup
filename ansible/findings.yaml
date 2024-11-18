@@ -1,0 +1,7 @@
+ansible ---
+Chnage in parameter -----> Renamed ec2_url to endpoint_url for consistency (with ec2_url remaining as an alias)..
+1. ansible\library\route53.py
+
+Chnage in parameter -----> Renamed ec2_group_info to ec2_security_group_info (with ec2_group_info remaining as an alias).
+1. ansible\nuxeo-health-check.yml
+

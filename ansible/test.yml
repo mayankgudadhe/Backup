@@ -1,0 +1,6 @@
+- name: Add static route
+  hosts: localhost
+  become: yes
+  tasks: 
+    - name: Print Hello World
+      hello_world:

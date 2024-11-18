@@ -1,0 +1,216 @@
+# yamllint disable rule:line-length
+---
+AWS_REGION: "{{ ansible_ec2_placement_region }}"
+NUXEO_APP_HEALTH_CHECK_URL: "/nuxeo/runningstatus?info=probe&key=runtimeStatus"
+GITTY_HEALTH_CHECK_URL: "/nuxeo/site/gitty/status"
+GITTY_ENVIRONMENT_TYPE: blue
+NUXEO_HOME: "/opt/nuxeo/server"
+
+# Feature flags
+USE_MONGODB: false
+USE_RDS: true
+ENABLE_AWS_ES: false
+USE_ES_SYNONYM: false
+USE_S3_DIRECT_UPLOAD: false
+ENABLE_CLOUDFRONT: false
+ENABLE_REDIS: true
+ENABLE_ASPERA: false
+EFS_DEDICATED: true
+deploy_quartz_table: false
+datadog_enabled: true
+
+# Versions
+NUXEO_VERSION: "10.10"
+MONGODB_TOOLS_VERSION: "4.0.20"
+MONGODB_DATABASE_TOOLS_VERSION: "100.6.1"
+MONGODB_MONGOSH_VERSION: "1.0.7"
+APACHE_VERSION: "2.4.62"
+AWS_SMTP_RELAY_VERSION: "v1.1.0"
+AWS_SMTP_IMAGE_NAME: "shared/aws-smtp-relay"
+EFS_UTILS_VERSION: "1.34.3"
+LIBSSL_VERSION: "1.1.1"
+PYTHON_VERSION: "3.6.15"
+RUBY_VERSION: "2.6.6"
+
+# Tokens
+INSTANCE_CLID: |
+  d8180902-d787-4559-a582-5974518351aa
+  3e6feada-9634-48a5-882f-c84277addc63
+
+# Below is very technical stuff
+stack_domain: "{{ STACK_DOMAINS['sandbox'] if AWS_ACCOUNT == 'nxio' else STACK_DOMAINS[STACK_ENVIRONMENT] | default(STACK_DOMAINS['preprod']) }}"
+stack_fqdn: "{{ CUSTOMER+\".\"+stack_domain if STACK_ENVIRONMENT == 'prod' or STACK_ENVIRONMENT == 'preprod' else CUSTOMER+\"-\"+STACK_ENVIRONMENT+\".\"+stack_domain }}"
+AWS_ES_DOMAIN_NAME: "es-{{ STACK_NAME }}-{{ STACK_ENVIRONMENT }}"
+REDIS_NAME: "{{ STACK_NAME }}-{{ STACK_ENVIRONMENT }}"
+nuxp_target_group_name: "{{ STACK_NAME }}-{{ STACK_ENVIRONMENT }}-nuxeo"
+nuxp_internal_target_group_name: "{{ STACK_NAME }}-{{ STACK_ENVIRONMENT }}-int"
+nuxg_target_group_name: "{{ STACK_NAME }}-{{ STACK_ENVIRONMENT }}-gitty-nuxeo"
+customer_config_s3_prefix: "{{ ansible_ec2_tags['configuration-branch'] }}/{{ STACK_ENVIRONMENT }}/configs"
+customer_config_elastic: "{{ customer_config_s3_prefix }}/elasticsearch"
+ES_DATA_PATH: "/usr/share/elasticsearch"
+ES_ANALYTICS_URL: "elastic.{{ STACK_NAME }}.{{ STACK_ENVIRONMENT }}.local"
+MONGODB_SOCKET_TIMEOUT_MS: 60000
+MONGODB_CLUSTER_NAME: "{{ STACK_NAME }}-{{ STACK_ENVIRONMENT }}-nuxeo"
+
+#-------------THREATSTACK AGENT vars-------------
+INSTALL_THREATSTACK_AGENT: false
+ACTIVATE_THREATSTACK_INVESTIGATE: false
+threatstack_ruleset: "Base Rule Set"
+threatstack_hostname: "{{ MACHINE_HOSTNAME }}"
+threatstack_config_dir: '/etc/threatstack'
+threatstack_config: "{{ threatstack_config_dir }}/tsconfig.json"
+
+NUXEO_ROLE_PATH: "roles/nuxeo"
+APP_DIR: "/apps"
+APACHE_TIMEOUT: 300
+
+# Stack technical domain
+STACK_DOMAINS:
+  prod: "nuxeocloud.com"
+  preprod: "preprod.nuxeocloud.com"
+  sandbox: "beta.nuxeocloud.com"
+
+# Ansible downloads
+ansible_base: "/opt/ansible"
+ansible_downloads: "{{ansible_base}}/downloads"
+virtual_env_path: "/opt/venv-nco-platform"
+ansible_python_interpreter: "{{virtual_env_path}}/bin/python3"
+
+default_additional_customer_packages: [ ]
+
+#docker_credentials
+docker_registries: [ ]
+
+docker_images:
+  - {image: 'httpd', tag: "{{ APACHE_VERSION }}", registry: 'docker.io'}
+
+    
+#ncp_agent ssh private key
+slave_private_key_path: /home/ncp_agent/.ssh/jenkins-slave
+slave_private_key_user: ncp_agent
+slave_private_key_group: ncp_agent
+
+# git efs mount settings
+gitty_efs_directory: studio_git_repos
+efs_mount_point: /efs
+efs_mount_options: "ro,nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport"
+
+# docker container name
+docker_container_name: "nuxeo"
+
+# Insight
+INSIGHT_TRAIN_REPOSITORY: "sagemaker-train"
+INSIGHT_DEPLOY_REPOSITORY: "sagemaker-deploy"
+
+postgres_client_version: "13"
+
+# NOS Marketplace domains
+NOS_MARKETPLACE_DOMAIN:
+  prod: "marketplace.nuxeo.com"
+  preprod: "marketplace.nuxeocloud.com"
+  uat: "marketplace.beta.nuxeocloud.com"
+  dev: "marketplace.beta.nuxeocloud.com"
+
+# NOS Local Marketplace URL
+NOS_LOCAL_MARKETPLACE_URL:
+  prod: "connect.nuxeo.com"
+  preprod: "nos-connect.preprod.nuxeocloud.com"
+  uat: "nos-uat.beta.nuxeocloud.com"
+  dev: "nos-dev.beta.nuxeocloud.com"
+
+# Deployment App Checker
+app_checker_name: "{{ CUSTOMER }}-app_checker"
+app_checker_cpu: 512
+app_checker_memory: 1024
+app_checker_tag: 1.0.1
+app_checker_image: "{{ ansible_ec2_identity_credentials_ec2_info_accountid }}.dkr.ecr.{{ ansible_ec2_placement_region }}.amazonaws.com/shared/ncp-base:{{ app_checker_tag }}"
+app_health_check: {"command": ["CMD-SHELL", "pwd || exit 1"]}
+#
+RETENTION_BUCKET_DEFAULT_MODE: "COMPLIANCE"
+RETENTION_BUCKET_DEFAULT_DAYS: 30
+
+# Nuxeo configuration override
+nuxeo_config_override_bucket: "nco-{{ AWS_ACCOUNT }}-platform"
+nuxeo_log_config_override_dest: "/apps/nuxeo/lib/log4j2.xml"
+nuxeo_log_config_override_src: "log/log4j2.xml"
+nuxeo_env_config_override_dest: "/apps/nuxeo/conf/nuxeo.conf.d/25-env-overrides.conf"
+nuxeo_env_config_override_src: "conf/env-overrides.conf"
+
+STACK_ENVIRONMENT: "{{ ansible_ec2_tags.staging }}"
+STACK_ENVIRONMENT_TYPE: "{{ ansible_ec2_tags.environment }}"
+STACK_ENVIRONMENT_NAME: "{{ ansible_ec2_tags.staging }}"
+CUSTOMER: "{{ ansible_ec2_tags.customer }}"
+STACK_NAME: "{{ ansible_ec2_tags['stack-identifier'] }}"
+SERVICE: "{{ 'app' if ansible_ec2_tags.service == 'nuxeo' else ansible_ec2_tags.service }}"
+STACK_ID: "{{ STACK_NAME.split('-')[1] }}"
+MACHINE_HOSTNAME: "{{ CUSTOMER }}-{{ STACK_ENVIRONMENT }}-{{ SERVICE }}-{{ STACK_ID }}-{{ ec2_private_ip.replace('.','-')  }}-{{ AWS_REGION.replace('-', '')[:3] }}"
+NCO_VERSION: "{{ lookup('aws_ssm', '/cloud-platform/{{ CUSTOMER }}/{{ STACK_ENVIRONMENT }}/NCO_VERSION', region=AWS_REGION) }}"
+S3_DIRECT_UPLOAD_BUCKET: "{{ lookup('aws_ssm', '/cloud-platform/{{ CUSTOMER }}/{{ STACK_ENVIRONMENT }}/S3_DIRECT_UPLOAD_BUCKET', region=AWS_REGION) }}"
+S3_TRANSIENT_ROLE_ARN: "{{ lookup('aws_ssm', '/cloud-platform/{{ CUSTOMER }}/{{ STACK_ENVIRONMENT }}/S3_TRANSIENT_ROLE_ARN', region=AWS_REGION) }}"
+APP_BINARIES_BUCKET: "{{ lookup('aws_ssm', '/cloud-platform/{{ CUSTOMER }}/{{ STACK_ENVIRONMENT }}/APP_BINARIES_BUCKET', region=AWS_REGION) }}"
+KMS_ID: "{{ lookup('aws_ssm', '/cloud-platform/{{ CUSTOMER }}/{{ STACK_ENVIRONMENT }}/KMS_ID', region=AWS_REGION) }}"
+KMS_ARN: "{{ lookup('aws_ssm', '/cloud-platform/{{ CUSTOMER }}/{{ STACK_ENVIRONMENT }}/KMS_ARN', region=AWS_REGION) }}"
+ASPERA_REGION: "{{ lookup('aws_ssm', '/cloud-platform/{{ CUSTOMER }}/{{ STACK_ENVIRONMENT }}/ASPERA_REGION', region=AWS_REGION) }}"
+STACK_IAM_ROLE_ARN: "{{ lookup('aws_ssm', '/cloud-platform/{{ CUSTOMER }}/{{ STACK_ENVIRONMENT }}/STACK_IAM_ROLE_ARN', region=AWS_REGION) }}"
+CUSTOMER_SPECIFIC_IAM_ROLE_ARN: "{{ lookup('aws_ssm', '/cloud-platform/{{ CUSTOMER }}/{{ STACK_ENVIRONMENT }}/CUSTOMER_SPECIFIC_IAM_ROLE_ARN', region=AWS_REGION) }}"
+SAGEMAKER_ROLE_ARN: "{{ lookup('aws_ssm', '/cloud-platform/{{ CUSTOMER }}/{{ STACK_ENVIRONMENT }}/SAGEMAKER_ROLE_ARN', region=AWS_REGION) }}"
+SAGEMAKER_BUCKET_NAME: "{{ lookup('aws_ssm', '/cloud-platform/{{ CUSTOMER }}/{{ STACK_ENVIRONMENT }}/SAGEMAKER_BUCKET_NAME', region=AWS_REGION) }}"
+RETENTION_BUCKET_NAME: "{{ lookup('aws_ssm', '/cloud-platform/{{ CUSTOMER }}/{{ STACK_ENVIRONMENT }}/RETENTION_BUCKET_NAME', region=AWS_REGION) }}"
+GITTY_DNS: "{{ lookup('aws_ssm', '/cloud-platform/{{ CUSTOMER }}/{{ STACK_ENVIRONMENT }}/GITTY_DNS', region=AWS_REGION) }}"
+STACK_INTERNAL_DNS: "{{ lookup('aws_ssm', '/cloud-platform/{{ CUSTOMER }}/{{ STACK_ENVIRONMENT }}/STACK_INTERNAL_DNS', region=AWS_REGION) }}"
+REDIS_DB_ENDPOINT: "{{ lookup('aws_ssm', '/cloud-platform/{{ CUSTOMER }}/{{ STACK_ENVIRONMENT }}/REDIS_DB_ENDPOINT', region=AWS_REGION) }}"
+CF_DISTRIBUTED_DOMAIN: "{{ lookup('aws_ssm', '/cloud-platform/{{ CUSTOMER }}/{{ STACK_ENVIRONMENT }}/CF_DISTRIBUTED_DOMAIN', region=AWS_REGION) }}"
+ES_CLUSTER_AUTH_SECRET_ARN: "{{ lookup('aws_ssm', '/cloud-platform/{{ CUSTOMER }}/{{ STACK_ENVIRONMENT }}/ES_CLUSTER_AUTH_SECRET_ARN', region=AWS_REGION) }}"
+SUPPORT_IAM_ROLE_ARN: "{{ lookup('aws_ssm', '/cloud-platform/{{ CUSTOMER }}/{{ STACK_ENVIRONMENT }}/SUPPORT_IAM_ROLE_ARN', region=AWS_REGION) }}"
+
+
+- name: All ssm_parameter in one lookup
+  set_fact:
+    ssm_params:
+      nco_version: "{{ lookup('aws_ssm', '/cloud-platform/nuxeo/{{ STACK_ID }}/NCO_VERSION', region=AWS_REGION) }}"
+      s3_direct_upload_bucket: "{{ lookup('aws_ssm', '/cloud-platform/nuxeo/{{ STACK_ID }}/S3_DIRECT_UPLOAD_BUCKET', region=AWS_REGION) }}"
+      s3_transient_role_arn: "{{ lookup('aws_ssm', '/cloud-platform/nuxeo/{{ STACK_ID }}/S3_TRANSIENT_ROLE_ARN', region=AWS_REGION) }}"
+      app_binaries_bucket: "{{ lookup('aws_ssm', '/cloud-platform/nuxeo/{{ STACK_ID }}/APP_BINARIES_BUCKET', region=AWS_REGION) }}"
+      kms_id: "{{ lookup('aws_ssm', '/cloud-platform/nuxeo/{{ STACK_ID }}/KMS_ID', region=AWS_REGION) }}"
+      kms_arn: "{{ lookup('aws_ssm', '/cloud-platform/nuxeo/{{ STACK_ID }}/KMS_ARN', region=AWS_REGION) }}"
+      aspera_region: "{{ lookup('aws_ssm', '/cloud-platform/nuxeo/{{ STACK_ID }}/ASPERA_REGION', region=AWS_REGION) }}"
+      stack_iam_role_arn: "{{ lookup('aws_ssm', '/cloud-platform/nuxeo/{{ STACK_ID }}/STACK_IAM_ROLE_ARN', region=AWS_REGION) }}"
+      customer_specific_iam_role_arn: "{{ lookup('aws_ssm', '/cloud-platform/nuxeo/{{ STACK_ID }}/CUSTOMER_SPECIFIC_IAM_ROLE_ARN', region=AWS_REGION) }}"
+      sagemaker_role_arn: "{{ lookup('aws_ssm', '/cloud-platform/nuxeo/{{ STACK_ID }}/SAGEMAKER_ROLE_ARN', region=AWS_REGION) }}"
+      sagemaker_bucket_name: "{{ lookup('aws_ssm', '/cloud-platform/nuxeo/{{ STACK_ID }}/SAGEMAKER_BUCKET_NAME', region=AWS_REGION) }}"
+      retention_bucket_name: "{{ lookup('aws_ssm', '/cloud-platform/nuxeo/{{ STACK_ID }}/RETENTION_BUCKET_NAME', region=AWS_REGION) }}"
+      gitty_dns: "{{ lookup('aws_ssm', '/cloud-platform/nuxeo/{{ STACK_ID }}/GITTY_DNS', region=AWS_REGION) }}"
+      stack_internal_dns: "{{ lookup('aws_ssm', '/cloud-platform/nuxeo/{{ STACK_ID }}/STACK_INTERNAL_DNS', region=AWS_REGION) }}"
+      redis_db_endpoint: "{{ lookup('aws_ssm', '/cloud-platform/nuxeo/{{ STACK_ID }}/REDIS_DB_ENDPOINT', region=AWS_REGION) }}"
+      cf_distributed_domain: "{{ lookup('aws_ssm', '/cloud-platform/nuxeo/{{ STACK_ID }}/CF_DISTRIBUTED_DOMAIN', region=AWS_REGION) }}"
+      es_cluster_auth_secret_arn: "{{ lookup('aws_ssm', '/cloud-platform/nuxeo/{{ STACK_ID }}/ES_CLUSTER_AUTH_SECRET_ARN', region=AWS_REGION) }}"
+      support_iam_role_arn: "{{ lookup('aws_ssm', '/cloud-platform/nuxeo/{{ STACK_ID }}/SUPPORT_IAM_ROLE_ARN', region=AWS_REGION) }}"
+- name : my own which i create 
+  set_fact:
+    NCO_VERSION: "{{ssm_params.app_binaries_bucket}}"
+- name: Set individual facts from the gathered SSM parameters
+  set_fact:
+    NCO_VERSION: "{{ ssm_params.nco_version }}"
+    S3_DIRECT_UPLOAD_BUCKET: "{{ ssm_params.s3_direct_upload_bucket }}"
+    S3_TRANSIENT_ROLE_ARN: "{{ ssm_params.s3_transient_role_arn }}"
+    APP_BINARIES_BUCKET: "{{ ssm_params.app_binaries_bucket }}"
+    KMS_ID: "{{ ssm_params.kms_id }}"
+    KMS_ARN: "{{ ssm_params.kms_arn }}"
+    ASPERA_REGION: "{{ ssm_params.aspera_region }}"
+    STACK_IAM_ROLE_ARN: "{{ ssm_params.stack_iam_role_arn }}"
+    CUSTOMER_SPECIFIC_IAM_ROLE_ARN: "{{ ssm_params.customer_specific_iam_role_arn }}"
+    SAGEMAKER_ROLE_ARN: "{{ ssm_params.sagemaker_role_arn }}"
+    SAGEMAKER_BUCKET_NAME: "{{ ssm_params.sagemaker_bucket_name }}"
+    RETENTION_BUCKET_NAME: "{{ ssm_params.retention_bucket_name }}"
+    GITTY_DNS: "{{ ssm_params.gitty_dns }}"
+    STACK_INTERNAL_DNS: "{{ ssm_params.stack_internal_dns }}"
+    REDIS_DB_ENDPOINT: "{{ ssm_params.redis_db_endpoint }}"
+    CF_DISTRIBUTED_DOMAIN: "{{ ssm_params.cf_distributed_domain }}"
+    ES_CLUSTER_AUTH_SECRET_ARN: "{{ ssm_params.es_cluster_auth_secret_arn }}"
+    SUPPORT_IAM_ROLE_ARN: "{{ ssm_params.support_iam_role_arn }}"
+- name: Set remaining facts
+  set_fact:
+    STACK_ID: "{{ STACK_NAME.split('-')[1] }}"
+    MACHINE_HOSTNAME: "{{ STACK_ID }}-{{ ansible_ec2_tags.staging }}-{{ SERVICE }}-{{ STACK_ID }}-{{ ec2_private_ip.replace('.','-') }}-{{ AWS_REGION.replace('-', '')[:3] }}"
+    SERVICE: "{{ 'app' if ansible_ec2_tags.service == 'nuxeo' else ansible_ec2_tags.service }}"
+    STACK_NAME: "{{ ansible_ec2_tags['stack-identifier'] }}"

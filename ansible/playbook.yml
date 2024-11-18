@@ -1,0 +1,235 @@
+- name: get generic secrets
+  set_fact:
+    secrets_datadog: "{{ lookup('amazon.aws.aws_secret','{{ ansible_ec2_tags.customer }}/{{ ansible_ec2_tags.staging }}/datadog', region=AWS_REGION) }}"
+    secrets_nuxeo: "{{ lookup('amazon.aws.aws_secret','{{ ansible_ec2_tags.customer }}/{{ ansible_ec2_tags.staging }}/nuxeo', region=AWS_REGION) }}"
+
+- name: get customer config bucket sha1sum
+  set_fact:
+    customer_config_bucket_sh1sum: "{{ ansible_ec2_tags.customer | sha1 }}"
+
+- name: customer config bucket name
+  set_fact:
+    CUSTOMER_CONFIG_BUCKET: "nco-{{ AWS_ACCOUNT }}-configs-{{ customer_config_bucket_sh1sum[:10] }}"
+
+- name: download terraform.tfvars from customer config bucket
+  aws_s3:
+    bucket: "{{ CUSTOMER_CONFIG_BUCKET }}"
+    object: "{{ ansible_ec2_tags['configuration-branch'] }}/{{ STACK_ENVIRONMENT }}/terraform.tfvars"
+    dest: "/tmp/terraform.tfvars"
+    mode: get
+    region: "us-east-1"
+
+- name: transform terraform.tfvars to json
+  shell: cat /tmp/terraform.tfvars | json2hcl -reverse
+  register: tfvars_result
+
+- set_fact: tfvars="{{ tfvars_result.stdout | from_json }}"
+
+# Get all the required variable from terraform.tfvars file
+- name: transform tfvars to facts
+  set_fact:
+    deploy_quartz_table: "{{ tfvars['DEPLOY_QUARTZ_TABLE'] | default(deploy_quartz_table) }}"
+    enable_cloudfront: "{{ tfvars['ENABLE_CLOUDFRONT'] | default(ENABLE_CLOUDFRONT) }}"
+    use_es_synonym: "{{ tfvars['USE_ES_SYNONYM'] | default(USE_ES_SYNONYM) }}"
+    stack_url: "{{ tfvars['STACK_URL'] }}"
+    nuxeo_app_health_check_url: "{{ tfvars['NUXEO_APP_HEALTH_CHECK_URL'] | default(NUXEO_APP_HEALTH_CHECK_URL) }}"
+    enable_s3_direct_upload:  "{{ tfvars['USE_S3_DIRECT_UPLOAD'] | default(USE_S3_DIRECT_UPLOAD) }}"
+    use_mongodb:  "{{ tfvars['USE_MONGODB'] | default(USE_MONGODB) }}"
+    use_rds:  "{{ tfvars['USE_RDS'] | default(USE_RDS) }}"
+    mongodb_socket_timeout_ms: "{{ tfvars['MONGODB_SOCKET_TIMEOUT_MS'] | default(MONGODB_SOCKET_TIMEOUT_MS) }}"
+    apache_timeout:  "{{ tfvars['APACHE_TIMEOUT'] | default(APACHE_TIMEOUT) }}"
+    datadog_api_key: "{{ secrets_datadog['datadog_apikey'] }}"
+    use_es_node_type: "{{ tfvars['USE_ES_NODE_TYPE'] | default('blue') }}"
+    efs_dedicated: "{{ tfvars['EFS_DEDICATED'] | default(EFS_DEDICATED) }}"
+    use_existing_s3_bucket_backup: "{{ tfvars['USE_EXISTING_S3_BUCKET_BACKUP'] | default(false) }}"
+    use_existing_s3_bucket_assets: "{{ tfvars['USE_EXISTING_S3_BUCKET_ASSETS'] | default(false) }}"
+    threatstack_feature_plan: "{{ 'i' if (tfvars.ACTIVATE_THREATSTACK_INVESTIGATE|default(ACTIVATE_THREATSTACK_INVESTIGATE)) else 'm' }}"
+    stack_region: "{{ tfvars['STACK_REGION'] }}"
+    ses_region_override: "{{ tfvars['SES_REGION_OVERRIDE'] | default('') }}"
+    nuxeo_version: "{{ tfvars['NUXEO_VERSION'] | default(NUXEO_VERSION) }}"
+    enable_redis: "{{ tfvars['ENABLE_REDIS']  | default(ENABLE_REDIS) }}"
+    enable_aspera: "{{ tfvars['ENABLE_ASPERA']  | default(ENABLE_ASPERA) }}"
+    enable_aws_msk: "{{ tfvars['ENABLE_AWS_MSK'] | default(false) }}"
+    enable_aws_es: "{{ tfvars['ENABLE_AWS_ES'] | default(false) }}"
+    enable_gitty: "{{ tfvars['ENABLE_GITTY'] | default(false) }}"
+    enable_register: "{{ tfvars['ENABLE_REGISTER'] | default(false) }}"
+    insight_service: "{{ tfvars['INSIGHT_SERVICE'] | default(false) }}"
+    insight_train_repository: "{{ tfvars['INSIGHT_TRAIN_REPOSITORY'] | default(INSIGHT_TRAIN_REPOSITORY) }}"
+    insight_deploy_repository: "{{ tfvars['INSIGHT_DEPLOY_REPOSITORY'] | default(INSIGHT_DEPLOY_REPOSITORY) }}"
+    nuxeo_service: "{{ tfvars['NUXEO_SERVICE'] | default(false) }}"
+    enable_ai_addon: "{{ tfvars['ENABLE_AI_ADDON'] | default(false) }}"
+    use_app_checker: "{{ tfvars['USE_APP_CHECKER'] | default(false) }}"
+    app_checker_image_url: "{{ tfvars['APP_CHECKER_IMAGE_URL'] | default(app_checker_image) }}"
+    nuxeo_packages : "{{ tfvars['NUXEO_PACKAGES'] | default('') }}"
+    nuxeo_hotfix_version : "{{ tfvars['NUXEO_HOTFIX_VERSION'] | default('') }}"
+    additional_cors_domains: "{{ tfvars['ADDITIONAL_CORS_DOMAINS'] | default('') }}"
+    enable_cors_config: "{{ tfvars['ENABLE_CORS_CONFIG'] | default(true) }}"
+    enable_template_bindings: "{{ tfvars['ENABLE_TEMPLATE_BINDINGS'] | default(false) }}"
+    enable_s3_retention: "{{tfvars['ENABLE_S3_RETENTION'] | default(false) }}"
+    enable_s3_retention_binding: "{{tfvars['ENABLE_S3_RETENTION_BINDING'] | default(false) }}"
+    datadog_custom_tags: "{{ tfvars['DATADOG_CUSTOM_TAGS'] | default([]) }}"
+    enable_s3_kms_encryption: "{{tfvars['ENABLE_S3_KMS_ENCRYPTION'] | default(false) }}"
+    enable_es_advanced_security: "{{ tfvars['ENABLE_ES_ADVANCED_SECURITY'] | default(false) }}"
+    enable_efs_traffic_encryption: "{{ tfvars['ENABLE_EFS_TRAFFIC_ENCRYPTION'] | default(false) }}"
+    nuxeo_s3_binary_manager: "{{ tfvars['NUXEO_S3_BINARY_MANAGER'] | default('org.nuxeo.ecm.blob.s3.S3BlobProvider') }}"
+    mongodb_cluster_name:  "{{ tfvars['MONGODB_CLUSTER_NAME'] | default(MONGODB_CLUSTER_NAME[:30]) }}"
+    enable_mongodb_manual_dump: "{{ tfvars['ENABLE_MONGODB_MANUAL_DUMP'] | default(false) }}"
+    enable_datadog_process_monitoring: "{{ tfvars['ENABLE_DATADOG_PROCESS_MONITORING'] | default(true) }}"
+    ignore_work_processing: "{{ tfvars['IGNORE_WORK_PROCESSING'] | default(false) }}"
+    enable_vpc_traffic_encryption: "{{ tfvars['ENABLE_VPC_TRAFFIC_ENCRYPTION'] | default(false) }}"
+    enable_datadog_authlog: "{{ tfvars['ENABLE_DATADOG_AUTHLOG'] | default(false) }}"
+    enable_datadog_journallog: "{{ tfvars['ENABLE_DATADOG_JOURNALLOG'] | default(false) }}"
+
+- set_fact:
+    enable_es_manage_alias: "{{ tfvars['ENABLE_ES_MANAGE_ALIAS'] | default(false) }}"
+  when: enable_aws_es
+
+- name: get Postgres secrets
+  set_fact:
+    secrets_postgres_auth: "{{ lookup('amazon.aws.aws_secret','{{ ansible_ec2_tags.customer }}/{{ ansible_ec2_tags.staging }}/postgres-auth', region=AWS_REGION) }}"
+  when: use_rds and not use_mongodb
+
+- name: get ES cluster auth secrets
+  set_fact:
+    secrets_es_cluster_auth: "{{ lookup('amazon.aws.aws_secret','{{ ES_CLUSTER_AUTH_SECRET_ARN }}', region=AWS_REGION) }}"
+  when: enable_es_advanced_security
+
+- block:
+  - name: get MongoDB project auth secrets
+    set_fact:
+      secrets_mongodb_auth: "{{ lookup('amazon.aws.aws_secret','{{ ansible_ec2_tags.customer }}/{{ ansible_ec2_tags.staging }}/mongodb-auth', region=AWS_REGION) }}"
+  - name: get MongoDB cluster auth secrets
+    set_fact:
+      secrets_mongodb_cluster_auth: "{{ lookup('amazon.aws.aws_secret','{{ CUSTOMER }}/{{ STACK_ENVIRONMENT_NAME }}/mongodb-cluster-auth', region=AWS_REGION) }}"
+  when: use_mongodb
+
+- block:
+  - set_fact:
+      aspera_secret_input : '{ "aws_region": "{{ AWS_REGION }}", "secret_name": "{{ ansible_ec2_tags.customer }}/{{ ansible_ec2_tags.staging }}/aspera" }'
+
+  - name: copy read-aspera-secrets.py file into /tmp directory
+    copy:
+      src: "{{ playbook_dir }}/../scripts/read-aspera-secrets.py"
+      dest: "/tmp/read-aspera-secrets.py"
+
+  - name: get Aspera secrets from
+    shell: "python3 /tmp/read-aspera-secrets.py"
+    args:
+      stdin: "{{ aspera_secret_input | to_json }}"
+    environment:
+      - PATH: '{{ virtual_env_path }}/bin:{{ ansible_env.PATH }}'
+    register: aspera_secrets
+
+  - file:
+      path: /tmp/read-aspera-secrets.py
+      state: absent
+
+  - set_fact:
+      aspera_secrets: "{{ aspera_secrets.stdout }}"
+      enable_s3_direct_upload: true
+  when: enable_aspera
+
+- name: get s3 transient
+  set_fact:
+    enable_s3_transient: "{{ true if (enable_s3_direct_upload or enable_aspera )  else false }}"
+
+# - name: Read Stack AWS SSM Parameter
+#   set_fact:
+#     stack_ssm_params: "{{ lookup('amazon.aws.aws_ssm', '/cloud-platform/{{ CUSTOMER }}/{{ STACK_ENVIRONMENT_NAME }}/', region=AWS_REGION, shortnames=true, bypath=true, recursive=true) }}"
+
+- set_fact:
+    es_endpoint: "{{ 'https://' +  stack_ssm_params['AWS_ES_ENDPOINT'] }}"
+    es_analytics_endpoint: "{{ 'https://' + stack_ssm_params['AWS_ES_ENDPOINT']  }}"
+
+# ---
+# - hosts: localhost
+#   gather_facts: no
+#   vars:
+#     default_region: "us-east-1"
+#     tag_filters:
+#       - {'Key': 'tag:customer', 'Values': ['ncoint']}
+#       - {'Key': 'tag:project', 'Values': ['harsh']}
+
+#   tasks:
+#     - name: Lookup SSM parameter store with tag filter in the current region
+#       debug:
+#         msg: "{{ lookup('aws_ssm_with_tags', *tag_filters) }}"
+
+#     - name: Lookup SSM parameter store in nominated region with tag filter
+#       debug:
+#         msg: "{{ lookup('aws_ssm_with_tags', *tag_filters, region=default_region) }}"
+
+#     - name: Run pytest for aws_ssm_with_tags lookup plugin
+#       block:
+#         - name: Ensure pytest and moto are installed
+#           pip:
+#             name:
+#               - pytest
+#               - moto
+#             state: present
+
+#         - name: Run pytest
+#           command: pytest ./test/unit/test_aws_ssm_with_tags.py
+#           register: pytest_result
+#           ignore_errors: yes 
+
+#         - name: Fail if pytest failed
+#           fail:
+#             msg: "pytest failed!"
+#           when: pytest_result.rc != 0
+
+#         - name: Display pytest output
+#           debug:
+#             msg: |
+#               Pytest Output:
+#               {{ pytest_result.stdout }}
+#               Error Output:
+#               {{ pytest_result.stderr }}
+
+#       rescue:
+#         - name: Display error message
+#           debug:
+#             msg: "Failed to run pytest or install dependencies!"
+
+
+
+# ---
+# - hosts: localhost
+#   gather_facts: no
+#   vars:
+#     default_region: "us-east-1"
+#     tag_filters:
+#       - {'Key': 'tag:customer', 'Values': ['ncoint']}
+#       - {'Key': 'tag:project', 'Values': ['harsh']}
+
+#   tasks:
+#     - name: Lookup SSM parameter store with tag filter in the current region
+#       debug:
+#         msg: "{{ lookup('aws_ssm_with_tags', *tag_filters) }}"
+
+#     - name: Lookup SSM parameter store in nominated region with tag filter
+#       debug:
+#         msg: "{{ lookup('aws_ssm_with_tags', *tag_filters, region=default_region) }}"
+
+#     - name: Run pytest for aws_ssm_with_tags lookup plugin
+#       block:
+#         - name: Ensure pytest and moto are installed
+#           pip:
+#             name:
+#               - pytest
+#               - moto
+#             state: present
+
+#         - name: Run pytest
+#           command: pytest ./test/unit/test_aws_ssm_with_tags.py
+#           register: pytest_result
+
+#         - name: Fail if pytest failed
+#           fail:
+#             msg: "pytest failed!"
+#           when: pytest_result.rc != 0
+
+#       rescue:
+#         - name: Display error message
+#           debug:
+#             msg: "Failed to run pytest or install dependencies!"
